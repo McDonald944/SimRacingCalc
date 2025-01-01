@@ -3,7 +3,6 @@ from tkinter import ttk
 from ttkthemes import ThemedTk
 from roster_window import open_team_roster
 
-
 class AppButton:
     def __init__(self, master, text, label_text, command=None):
         self.master = master
@@ -56,7 +55,7 @@ for row in range(num_rows+2):
 
 button_data = [
     {"text": "Team Roster", 'label': 'Opens the team roster window', 'command': lambda: open_team_roster(root)},
-    {"text": "Driver Availability", 'label': 'Opens the driver availability window'},
+    {"text": "Driver Availability", 'label': 'Opens the driver availability window', 'command': lambda: open_availability_window(root, driver_frame, driver_row_counter, column_names)},
     {"text": "Driver Statistics", 'label': 'Opens the driver statistics window'},
     {'text': 'Calculate Race Schedule', 'label': 'Calculate Race Schedule'},
 ]

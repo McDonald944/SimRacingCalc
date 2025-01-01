@@ -267,21 +267,6 @@ def open_team_roster(master):
         ttk.Label(driver_frame, text=col_name).grid(row=1, column=col_num, padx=5, pady=2,
                                                     sticky="w")  # Labels are now on row 1
 
-    # # Create initial entry row
-    # for col_num, col_name in enumerate(column_names):
-    #     var = None
-    #     if col_name in ["Back to Back Stints", "Triple Stint", "Start", "Finish"]:
-    #         var = tk.BooleanVar(value=False)  # Important: Initialize the BooleanVar
-    #         entry = ttk.Checkbutton(entry_frame, variable=var)
-    #         entry.var = var  # Store the var in the entry
-    #     elif col_name == "Timezone":
-    #         var = tk.StringVar(value='UTC')
-    #         entry = ttk.Combobox(entry_frame, values=timezones)
-    #         entry.var = var
-    #     else:
-    #         entry = ttk.Entry(entry_frame)
-    #     driver_entries[-1].append(entry)
-    #     entry.grid(row=0, column=col_num, padx=5, pady=2, sticky="ew")
 
     add_driver_button = ttk.Button(driver_frame, text="Add Driver", command=add_driver)
     add_driver_button.grid(row=driver_row_counter + 2, columnspan=len(column_names), sticky='nsew')
