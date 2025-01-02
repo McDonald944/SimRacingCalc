@@ -39,7 +39,7 @@ timezone_mapping = {
     # Asia
     "JST": "Asia/Tokyo",
     "IST": "Asia/Kolkata",  # India Standard Time
-    "CST": "Asia/Shanghai", #China Standard Time
+    "ChST": "Asia/Shanghai", #China Standard Time
     "KST": "Asia/Seoul", #Korea Standard Time
 
     # Other
@@ -61,57 +61,93 @@ def open_team_roster(master):
     def add_driver():
         nonlocal driver_row_counter
         try:
-            if not driver_entries:  # Check if driver_entries is empty
-                driver_entries.append([])  # Create the initial empty row
+            if not driver_entries:
+                driver_entries.append([])
                 driver_row_counter = 1
                 create_entry_row()
 
             new_driver_data = []
             current_row_entries = driver_entries[driver_row_counter - 1]
 
-            for i, col_name in enumerate(column_names):
-                entry = current_row_entries[i]
+            back_to_back = False
+            triple_stint = False
+            start_check = False
+            finish_check = False
 
-                if col_name in ["Back to Back Stints", "Triple Stint", "Start", "Finish"]:
-                    if hasattr(entry, 'var'):  # Check if the entry has a 'var' attribute (Checkbutton)
-                        new_driver_data.append(entry.var.get())
+            for i, col_name in enumerate(column_names):
+                try:
+                    entry = current_row_entries[i]
+                except IndexError:
+                    raise ValueError(f"Error accessing entry at index {i}")
+
+                if col_name == "Back to Back Stints":
+                    if hasattr(entry, 'var'):
+                        back_to_back = entry.var.get()
+                        new_driver_data.append(back_to_back)
                     else:
-                        new_driver_data.append(False)  # Default value if not a Checkbutton
+                        new_driver_data.append(False)
+                elif col_name == "Triple Stint":
+                    if hasattr(entry, 'var'):
+                        triple_stint = entry.var.get()
+                        new_driver_data.append(triple_stint)
+                    else:
+                        new_driver_data.append(False)
+                elif col_name == "Start":  # handle start check box
+                    if hasattr(entry, 'var'):
+                        start_check = entry.var.get()
+                        new_driver_data.append(start_check)
+                    else:
+                        new_driver_data.append(False)
+                elif col_name == "Finish":  # handle finish check box
+                    if hasattr(entry, 'var'):
+                        finish_check = entry.var.get()
+                        new_driver_data.append(finish_check)
+                    else:
+                        new_driver_data.append(False)
                 elif col_name == "Timezone":
-                    timezone_str = entry.get()
-                    if timezone_str in timezone_mapping:
-                        new_driver_data.append(timezone_mapping[timezone_str])  # Map abbreviation to IANA name
+                    if hasattr(entry, 'get'):
+                        timezone_str = entry.get()
+                        if timezone_str in timezone_mapping:
+                            new_driver_data.append(timezone_mapping[timezone_str])
+                        else:
+                            messagebox.showerror("Unknown Timezone", f"Unknown timezone: {timezone_str}")
+                            return
                     else:
-                        messagebox.showerror("Unknown Timezone", f"Unknown timezone: {timezone_str}")
-                        return
-                else:  # iRating and Driver Name
-                    try:
-                        value = entry.get()
-                        if col_name == "iRating":
-                            int(value)  # Check if it's a valid integer
-                        new_driver_data.append(value)
-                    except ValueError:
-                        raise ValueError(f"{col_name} must be a number")
+                        new_driver_data.append("UTC")
+                else:
+                    if hasattr(entry, 'get'):
+                        try:
+                            value = entry.get()
+                            if col_name == "iRating":
+                                int(value)
+                            new_driver_data.append(value)
+                        except ValueError:
+                            raise ValueError(f"{col_name} must be a number or valid input")
+                    else:
+                        new_driver_data.append("")
+
+            if triple_stint and not back_to_back:
+                raise ValueError("Drivers cannot agree to a Triple Stint without agreeing to Back to Back Stints.")
 
             tree.insert("", tk.END, values=new_driver_data)
 
-            # Clear the input fields *after* inserting into the treeview
+            # Clear input fields (Corrected and Simplified)
             for entry in driver_entries[driver_row_counter - 1]:
                 if isinstance(entry, ttk.Entry):
                     entry.delete(0, tk.END)
                 elif isinstance(entry, ttk.Combobox):
-                    entry.set("")  # Clear the Combobox
+                    entry.current(0)  # set the combobox back to the first value
                 elif isinstance(entry, ttk.Checkbutton):
-                    entry.var.set(False)  # Reset Checkbutton to False
+                    entry.var.set(False)
 
-            # Create the NEW row *before* destroying the old one
-            if not driver_entries or driver_row_counter == len(driver_entries):
+            # Row creation and destruction (Corrected)
+            if driver_row_counter == len(driver_entries):
                 driver_entries.append([])
                 driver_row_counter += 1
                 create_entry_row()
             else:
                 old_row = driver_entries[driver_row_counter - 1]
-                driver_entries[driver_row_counter - 1] = []  # create new list for the row
+                driver_entries[driver_row_counter - 1] = []
                 for widget in old_row:
                     widget.grid_forget()
                     widget.destroy()
@@ -121,7 +157,8 @@ def open_team_roster(master):
                         entry = ttk.Checkbutton(entry_frame, variable=var)
                         entry.var = var
                     elif col_name == "Timezone":
-                        var = tk.StringVar(value="UTC")
+                        var = tk.StringVar(value=list(timezone_mapping.keys())[
+                            0])  # set the default value to the first key in the dict
                         entry = ttk.Combobox(entry_frame, textvariable=var, values=list(timezone_mapping.keys()))
                         entry.var = var
                     else:
@@ -129,7 +166,6 @@ def open_team_roster(master):
                     driver_entries[driver_row_counter - 1].append(entry)
                     entry.grid(row=driver_row_counter - 1, column=col_num, padx=5, pady=2, sticky="ew")
 
-            # Destroy the old row *after* creating the new one
             if driver_row_counter > 1:
                 old_row_index = driver_row_counter - 2
                 for widget in driver_entries[old_row_index]:
@@ -142,24 +178,23 @@ def open_team_roster(master):
             messagebox.showerror("Invalid Input", str(e))
             return
 
-    def create_entry_row():  # Function to create entry row
+    def create_entry_row():
         nonlocal driver_row_counter
-
         for col_num, col_name in enumerate(column_names):
             var = None
-            entry = None # Initialize entry
+            entry = None
             if col_name in ["Back to Back Stints", "Triple Stint", "Start", "Finish"]:
                 var = tk.BooleanVar(value=False)
                 entry = ttk.Checkbutton(entry_frame, variable=var)
                 entry.var = var
             elif col_name == "Timezone":
-                var = tk.StringVar(value="UTC")
+                var = tk.StringVar(value=list(timezone_mapping.keys())[0]) #set the default value to the first key in the dict
                 entry = ttk.Combobox(entry_frame, textvariable=var, values=list(timezone_mapping.keys()))
                 entry.var = var
             else:
                 entry = ttk.Entry(entry_frame)
             driver_entries[driver_row_counter - 1].append(entry)
-            if entry: #Check if entry exists before gridding
+            if entry:
                 entry.grid(row=0, column=col_num, padx=5, pady=2, sticky="ew")
 
     def save_roster():
@@ -216,13 +251,10 @@ def open_team_roster(master):
             try:
                 event_data, roster_data = dh.load_roster_data(filename)
 
-                for row_num, row_data in enumerate(roster_data):
-                    tree.insert("", tk.END, values=row_data)
-
-                # Clear existing data
+                # Clear existing data in the Treeview
                 tree.delete(*tree.get_children())
 
-                # Clear existing entry widgets and list (if any)
+                # Clear existing entry widgets and list
                 for row in driver_entries:
                     for widget in row:
                         widget.grid_forget()
@@ -233,31 +265,45 @@ def open_team_roster(master):
                 driver_row_counter = 1
                 driver_entries.append([])
 
+                # Recreate entry row with correct Timezone options
                 for col_num, col_name in enumerate(column_names):
                     var = None
-                    entry = None  # Initialize entry
+                    entry = None
                     if col_name in ["Back to Back Stints", "Triple Stint", "Start", "Finish"]:
                         var = tk.BooleanVar()
-                        entry = ttk.Checkbutton(entry_frame, variable=var)  # Create the checkbutton
+                        entry = ttk.Checkbutton(entry_frame, variable=var)
+                        entry.var = var
                     elif col_name == "Timezone":
-                        var = tk.StringVar(value="UTC")
-                        entry = ttk.Combobox(entry_frame, textvariable=var, values=timezones)  # Create the combobox
+                        var = tk.StringVar(value=list(timezone_mapping.keys())[0]) #set the default value to the first key in the dict
+                        entry = ttk.Combobox(entry_frame, textvariable=var, values=list(timezone_mapping.keys())) # Use timezone_mapping keys
+                        entry.var = var
                     else:
                         entry = ttk.Entry(entry_frame)
-                    driver_entries[-1].append(entry)  # Append the entry
-                    if entry:  # Check if entry exists before gridding
+                    driver_entries[-1].append(entry)
+                    if entry:
                         entry.grid(row=0, column=col_num, padx=5, pady=2, sticky="ew")
 
-
-                # Populate Event Info
+                # Populate Event Info (same as before)
                 for i, entry in enumerate(event_entries):
                     entry.delete(0, tk.END)
                     if i < len(event_data):
                         entry.insert(0, event_data[i])
 
-                # Populate Driver Table ONLY (Do NOT create entry rows)
+                # Populate Driver Table (Corrected Timezone Handling)
                 for row_data in roster_data:
-                    tree.insert("", tk.END, values=row_data)
+                    new_row = []
+                    for i, value in enumerate(row_data):
+                        if column_names[i] == "Timezone":
+                            # Check if the loaded timezone is a valid key in timezone_mapping
+                            if value in timezone_mapping.values():
+                                # Find the key corresponding to the value
+                                key = list(timezone_mapping.keys())[list(timezone_mapping.values()).index(value)]
+                                new_row.append(key)
+                            else:
+                                new_row.append("UTC")  # Default to UTC if not found
+                        else:
+                            new_row.append(value)
+                    tree.insert("", tk.END, values=new_row)
 
             except FileNotFoundError:
                 messagebox.showerror("Error Loading Roster", "File not found.")
@@ -298,7 +344,6 @@ def open_team_roster(master):
 
 
     column_names = ["iRating", "Driver Name", "Back to Back Stints", "Triple Stint", "Timezone", "Start", "Finish"]
-    timezones = ["UTC", "EST", "CST", "PST", "GMT", "CET", "AEST"]
 
     # Create the entry frame
     entry_frame = ttk.Frame(driver_frame)
