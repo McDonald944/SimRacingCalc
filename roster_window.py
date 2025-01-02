@@ -39,7 +39,7 @@ timezone_mapping = {
     # Asia
     "JST": "Asia/Tokyo",
     "IST": "Asia/Kolkata",  # India Standard Time
-    "CST": "Asia/Shanghai", #China Standard Time
+    "ChST": "Asia/Shanghai", #China Standard Time
     "KST": "Asia/Seoul", #Korea Standard Time
 
     # Other

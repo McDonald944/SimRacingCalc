@@ -50,12 +50,12 @@ def open_availability_window(master):
         for i, value in enumerate(time_block_values):
             ttk.Radiobutton(time_block_frame, text=f"{value} Minutes", variable=time_block, value=value).grid(row=i, column=0, sticky="w", pady=2)
 
-        def create_availability():
+        def create_availability(availability_window):
             offset = offset_entry.get()
             start_gmt_str = start_gmt_entry.get()
             start_local_str = start_local_entry.get() if start_local_entry.get() else None
 
-            generate_availability_sheet(filepath, start_gmt_str, start_local_str, int(offset), time_block.get(), race_length, master)  # pass the filepath
+            generate_availability_sheet(filepath, start_gmt_str, start_local_str, int(offset), time_block.get(), race_length, master, availability_window)  # pass the filepath
 
         # Center the window
         availability_window.update_idletasks()
@@ -65,7 +65,7 @@ def open_availability_window(master):
         y = (master.winfo_screenheight() // 2) - (height // 2)
         availability_window.geometry("+{}+{}".format(x, y))
 
-        create_button_command = partial(create_availability)  # Create the partial function
+        create_button_command = partial(create_availability, availability_window)  # Create the partial function
         create_button = ttk.Button(availability_window, text="Create Availability Sheet", command=create_button_command) # Assign the partial function to command
         create_button.grid(row=4, column=0, columnspan=2, pady=(10, 20), sticky="ew")
 
@@ -82,7 +82,9 @@ def open_availability_window(master):
             messagebox.showerror("Error", "Could not open roster file.")
 
 
-def generate_availability_sheet(filepath, start_gmt_str, start_local_str, offset_str, time_block, race_length_str, master): #take filepath as a parameter
+
+
+def generate_availability_sheet(filepath, start_gmt_str, start_local_str, offset_str, time_block, race_length_str, master, availability_window): #take filepath as a parameter
     try:
         wb = openpyxl.Workbook()
         sheet = wb.active
@@ -213,6 +215,17 @@ def generate_availability_sheet(filepath, start_gmt_str, start_local_str, offset
                 adjusted_width = (max_length + 2)
                 sheet.column_dimensions[column[0].column_letter].width = adjusted_width
 
+        availability_options = ["Available", "Monitor", "Tentative", "Sleep", "Blocked"]
+        for row in range(2, row_num):
+            for driver_index in range(0, len(roster_df)):
+                availability_col = driver_start_col + (driver_index * 2) + 1
+                cell = sheet.cell(row=row, column=availability_col)
+                dv = openpyxl.worksheet.datavalidation.DataValidation(type="list", formula1='"{}"'.format(
+                    ",".join(availability_options)))
+                sheet.add_data_validation(dv)
+                dv.add(cell)
+                cell.value = "Tentative"
+
         filepath = filedialog.asksaveasfilename(
             defaultextension=".xlsx",
             filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
@@ -225,6 +238,7 @@ def generate_availability_sheet(filepath, start_gmt_str, start_local_str, offset
             try:
                 wb.save(filepath)
                 messagebox.showinfo("Success", f"Driver Availability sheet saved to {filepath}!")
+                availability_window.destroy()
             except OSError as e:
                 messagebox.showerror("Save Error", f"Error saving file: {e}")
             except Exception as e:
