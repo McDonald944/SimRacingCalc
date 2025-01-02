@@ -1,8 +1,63 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import data_handling as dh
+import pytz
+
+timezone_mapping = {
+    # North America
+    "EST": "America/New_York",
+    "CST": "America/Chicago",
+    "MST": "America/Denver",
+    "PST": "America/Los_Angeles",
+    "AKST": "America/Anchorage",  # Alaska Standard Time
+    "HST": "Pacific/Honolulu",    # Hawaii Standard Time
+    "EDT": "America/New_York",  #Eastern Daylight Time
+    "CDT": "America/Chicago",  #Central Daylight Time
+    "MDT": "America/Denver",  #Mountain Daylight Time
+    "PDT": "America/Los_Angeles",  #Pacific Daylight Time
+    "ADT": "America/Halifax", #Atlantic Daylight Time
+    "NST": "America/St_Johns", #Newfoundland Standard Time
+    "AST": "America/Puerto_Rico", #Atlantic Standard Time
+
+    # Europe
+    "GMT": "UTC",  # Use UTC for GMT
+    "BST": "Europe/London",
+    "CET": "Europe/Berlin",
+    "CEST": "Europe/Berlin",
+    "EET": "Europe/Athens",
+    "EEST": "Europe/Athens",
+    "WET": "Europe/Lisbon",
+    "WEST": "Europe/Lisbon",
+
+    # Australia
+    "AEST": "Australia/Sydney",
+    "AEDT": "Australia/Sydney",
+    "ACST": "Australia/Adelaide",
+    "ACDT": "Australia/Adelaide",
+    "AWST": "Australia/Perth",
+
+    # Asia
+    "JST": "Asia/Tokyo",
+    "IST": "Asia/Kolkata",  # India Standard Time
+    "CST": "Asia/Shanghai", #China Standard Time
+    "KST": "Asia/Seoul", #Korea Standard Time
+
+    # Other
+    "MSK": "Europe/Moscow",
+    "UTC": "UTC",
+    "Z": "UTC", #Zulu Time
+}
 
 def open_team_roster(master):
+    def center_window(window, width, height):
+        screen_width = window.winfo_screenwidth()
+        screen_height = window.winfo_screenheight()
+
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+
+        window.geometry(f"{width}x{height}+{x}+{y}")
+
     def add_driver():
         nonlocal driver_row_counter
         try:
@@ -23,7 +78,12 @@ def open_team_roster(master):
                     else:
                         new_driver_data.append(False)  # Default value if not a Checkbutton
                 elif col_name == "Timezone":
-                    new_driver_data.append(entry.get())
+                    timezone_str = entry.get()
+                    if timezone_str in timezone_mapping:
+                        new_driver_data.append(timezone_mapping[timezone_str])  # Map abbreviation to IANA name
+                    else:
+                        messagebox.showerror("Unknown Timezone", f"Unknown timezone: {timezone_str}")
+                        return
                 else:  # iRating and Driver Name
                     try:
                         value = entry.get()
@@ -35,25 +95,39 @@ def open_team_roster(master):
 
             tree.insert("", tk.END, values=new_driver_data)
 
-            # Create the NEW row *before* destroying the old one
-            if not driver_entries:
-                # Handle empty list case (e.g., add an initial row)
-                driver_entries.append([])
-                driver_row_counter = 1
+            # Clear the input fields *after* inserting into the treeview
+            for entry in driver_entries[driver_row_counter - 1]:
+                if isinstance(entry, ttk.Entry):
+                    entry.delete(0, tk.END)
+                elif isinstance(entry, ttk.Combobox):
+                    entry.set("")  # Clear the Combobox
+                elif isinstance(entry, ttk.Checkbutton):
+                    entry.var.set(False)  # Reset Checkbutton to False
 
-            for col_num, col_name in enumerate(column_names):
-                if col_name in ["Back to Back Stints", "Triple Stint", "Start", "Finish"]:
-                    var = tk.BooleanVar(value=False)
-                    entry = ttk.Checkbutton(entry_frame, variable=var)
-                    entry.var = var  # Store the var in the entry
-                elif col_name == "Timezone":
-                    var = tk.StringVar(value="UTC")
-                    entry = ttk.Combobox(entry_frame, textvariable=var, values=timezones)
-                    entry.var = var  # Store the var in the entry
-                else:
-                    entry = ttk.Entry(entry_frame)
-                driver_entries[-1].append(entry)
-                entry.grid(row=driver_row_counter - 1, column=col_num, padx=5, pady=2, sticky="ew")
+            # Create the NEW row *before* destroying the old one
+            if not driver_entries or driver_row_counter == len(driver_entries):
+                driver_entries.append([])
+                driver_row_counter += 1
+                create_entry_row()
+            else:
+                old_row = driver_entries[driver_row_counter - 1]
+                driver_entries[driver_row_counter - 1] = []  # create new list for the row
+                for widget in old_row:
+                    widget.grid_forget()
+                    widget.destroy()
+                for col_num, col_name in enumerate(column_names):
+                    if col_name in ["Back to Back Stints", "Triple Stint", "Start", "Finish"]:
+                        var = tk.BooleanVar(value=False)
+                        entry = ttk.Checkbutton(entry_frame, variable=var)
+                        entry.var = var
+                    elif col_name == "Timezone":
+                        var = tk.StringVar(value="UTC")
+                        entry = ttk.Combobox(entry_frame, textvariable=var, values=list(timezone_mapping.keys()))
+                        entry.var = var
+                    else:
+                        entry = ttk.Entry(entry_frame)
+                    driver_entries[driver_row_counter - 1].append(entry)
+                    entry.grid(row=driver_row_counter - 1, column=col_num, padx=5, pady=2, sticky="ew")
 
             # Destroy the old row *after* creating the new one
             if driver_row_counter > 1:
@@ -70,20 +144,23 @@ def open_team_roster(master):
 
     def create_entry_row():  # Function to create entry row
         nonlocal driver_row_counter
+
         for col_num, col_name in enumerate(column_names):
             var = None
+            entry = None # Initialize entry
             if col_name in ["Back to Back Stints", "Triple Stint", "Start", "Finish"]:
                 var = tk.BooleanVar(value=False)
                 entry = ttk.Checkbutton(entry_frame, variable=var)
                 entry.var = var
             elif col_name == "Timezone":
-                var = tk.StringVar(value='UTC')
-                entry = ttk.Combobox(entry_frame, textvariable=var, values=timezones)
+                var = tk.StringVar(value="UTC")
+                entry = ttk.Combobox(entry_frame, textvariable=var, values=list(timezone_mapping.keys()))
                 entry.var = var
             else:
                 entry = ttk.Entry(entry_frame)
             driver_entries[driver_row_counter - 1].append(entry)
-            entry.grid(row=0, column=col_num, padx=5, pady=2, sticky="ew")
+            if entry: #Check if entry exists before gridding
+                entry.grid(row=0, column=col_num, padx=5, pady=2, sticky="ew")
 
     def save_roster():
         event_data = [entry.get() for entry in event_entries]
@@ -130,11 +207,6 @@ def open_team_roster(master):
             pass
         except Exception as e:
             messagebox.showerror("Error Deleting Driver", f"An error occurred while deleting the driver: {e}")
-
-    def regrid_entries():
-        for i, row in enumerate(driver_entries):
-            for j, widget in enumerate(row):
-                widget.grid(row=i, column=j, padx=5, pady=2, sticky="ew")
 
     def load_roster():
         filename = filedialog.askopenfilename(defaultextension=".csv",
@@ -196,21 +268,14 @@ def open_team_roster(master):
         else:
             messagebox.showinfo("Load Cancelled", "Load was cancelled")
 
-    def center_window(window, width, height):
-        screen_width = window.winfo_screenwidth()
-        screen_height = window.winfo_screenheight()
-
-        x = (screen_width - width) // 2
-        y = (screen_height - height) // 2
-
-        window.geometry(f"{width}x{height}+{x}+{y}")
 
     icon = tk.PhotoImage(file='racing_flag_PNG.png')
     roster_window = tk.Toplevel(master)
     roster_window.title("Team Roster")
     roster_window.iconphoto(False, icon)
     roster_window.resizable(False, False)
-    # center_window(roster_window, 650, 500)
+    roster_window.configure(bg='#3d3d3d')
+    center_window(roster_window, 650, 630)
 
     # Static Event Info
     event_frame = ttk.LabelFrame(roster_window, text="Event Information")
